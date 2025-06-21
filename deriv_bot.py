@@ -71,11 +71,23 @@ class DerivBot:
                     },
                     "req_id": 1
                 }
+
                 ws.send(json.dumps(contrato))
                 result = json.loads(ws.recv())
+
+                # ✅ Tratamento de erro aprimorado
                 if "error" in result:
-                    self.logs.append(f"Erro: {result['error']['message']}")
-                    break
+                    self.logs.append(f"❌ Erro ao comprar contrato: {result['error']['message']}")
+                    stframe.text("\n".join(self.logs[-12:]))
+                    time.sleep(3)
+                    continue
+
+                if "buy" not in result:
+                    self.logs.append("❌ Erro: resposta inesperada da Deriv (sem campo 'buy')")
+                    stframe.text("\n".join(self.logs[-12:]))
+                    time.sleep(3)
+                    continue
+
                 buy_id = result["buy"]["contract_id"]
                 start_time = time.time()
 
