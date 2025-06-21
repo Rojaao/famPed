@@ -111,22 +111,21 @@ class DerivBot:
 
             buy_id = result["buy"]["contract_id"]
             resultado = "Desconhecido"
-            inicio = time.time()
 
-            while True:
-                try:
-                    res = json.loads(ws.recv())
-                    if res.get("msg_type") == "proposal_open_contract":
-                        if res["proposal_open_contract"]["contract_id"] == buy_id:
-                            if res["proposal_open_contract"]["is_sold"]:
-                                lucro = res["proposal_open_contract"]["profit"]
-                                resultado = "WIN" if lucro > 0 else "LOSS"
-                                break
-                    if time.time() - inicio > 10:
-                        self.logs.append("⚠️ Timeout ao aguardar resultado.")
+            # Monitorar manualmente o contrato até obter is_sold = true
+            for _ in range(20):
+                time.sleep(1)
+                ws.send(json.dumps({
+                    "proposal_open_contract": 1,
+                    "contract_id": buy_id
+                }))
+                res = json.loads(ws.recv())
+                if res.get("msg_type") == "proposal_open_contract":
+                    contrato_info = res["proposal_open_contract"]
+                    if contrato_info.get("is_sold"):
+                        lucro = contrato_info.get("profit", 0)
+                        resultado = "WIN" if lucro > 0 else "LOSS"
                         break
-                except:
-                    break
 
             if resultado == "WIN":
                 ganho_total += stake
