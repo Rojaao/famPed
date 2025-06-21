@@ -41,13 +41,33 @@ class DerivBot:
         stake_inicial = self.stake  # salva stake original
 
         def receber_ticks():
-            nonlocal ticks
+            nonlocal ticks, ws
             while True:
-                tick_msg = json.loads(ws.recv())
-                if tick_msg.get("msg_type") == "tick":
-                    ticks.append(int(str(tick_msg["tick"]["quote"])[-1]))
-                    if len(ticks) > 100:
-                        ticks = ticks[-100:]
+                try:
+                    tick_msg = json.loads(ws.recv())
+                    if tick_msg.get("msg_type") == "tick":
+                        ticks.append(int(str(tick_msg["tick"]["quote"])[-1]))
+                        if len(ticks) > 100:
+                            ticks = ticks[-100:]
+                except websocket.WebSocketConnectionClosedException:
+                    self.logs.append("⚠️ Conexão perdida. Reconectando ao WebSocket...")
+                    stframe.text("\n".join(self.logs[-12:]))
+                    try:
+                        ws = websocket.WebSocket()
+                        ws.connect("wss://ws.binaryws.com/websockets/v3?app_id=1089")
+                        ws.send(json.dumps({"authorize": self.token}))
+                        ws.recv()
+                        ws.send(json.dumps({"ticks": self.symbol}))
+                        self.logs.append("✅ Reconectado com sucesso.")
+                        stframe.text("\n".join(self.logs[-12:]))
+                    except Exception as e:
+                        self.logs.append(f"❌ Erro ao reconectar: {str(e)}")
+                        stframe.text("\n".join(self.logs[-12:]))
+                        time.sleep(5)
+                except Exception as e:
+                    self.logs.append(f"❌ Erro inesperado: {str(e)}")
+                    stframe.text("\n".join(self.logs[-12:]))
+                    time.sleep(2)
 
         threading.Thread(target=receber_ticks, daemon=True).start()
 
@@ -104,25 +124,9 @@ class DerivBot:
                 if resultado == "WIN":
                     ganho_total += stake
                     consecutivas = 0
-                    stake = stake_inicial  # ✅ volta ao valor inicial
+                    stake = stake_inicial  # ✅ volta ao valor original após win
                 else:
                     ganho_total -= stake
                     consecutivas += 1
                     if self.use_martingale:
                         stake *= self.factor  # aplica martingale
-
-                log = f"[{time.strftime('%H:%M:%S')}] Estratégia: {estrategia} | Entrada: {entrada} | Resultado: {resultado} | Stake: {round(stake,2)}"
-                self.logs.append(log)
-                self.resultados.append(1 if resultado == "WIN" else -1)
-
-                stframe.text("\n".join(self.logs[-12:]))
-                plot_area.pyplot(plot_resultados(self.resultados))
-
-                if ganho_total >= self.stop_gain:
-                    self.logs.append("🎯 Meta de lucro atingida. Parando o robô.")
-                    break
-                if ganho_total <= -self.stop_loss or consecutivas >= self.max_losses:
-                    self.logs.append("🛑 Stop Loss ou limite de perdas consecutivas atingido.")
-                    break
-
-                time.sleep(5)
