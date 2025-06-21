@@ -18,13 +18,13 @@ max_losses = st.number_input("❌ Máx. perdas consecutivas", min_value=1, value
 if st.button("🚀 Iniciar Robô"):
     st.success("Robô iniciado com sucesso!")
 
-    st.session_state.stframe = st.empty()
-    st.session_state.lucro_display = st.empty()
-    st.session_state.alerta_final = st.empty()
+    stframe = st.empty()
+    lucro_display = st.empty()
+    alerta_final = st.empty()
 
     bot = DerivBot(token, symbol, stake, use_martingale, factor, stop_gain, stop_loss, max_losses)
 
-    def run_bot():
+    def run_bot(stframe, lucro_display, alerta_final):
         import websocket, json, time
 
         try:
@@ -46,7 +46,7 @@ if st.button("🚀 Iniciar Robô"):
         except Exception:
             return
 
-        st.session_state.stframe.text(f"✅ Conectado | Conta: {'Real' if auth_response['authorize']['is_virtual']==0 else 'Demo'}")
+        stframe.text(f"✅ Conectado | Conta: {'Real' if auth_response['authorize']['is_virtual']==0 else 'Demo'}")
 
         lock = threading.Lock()
         ticks = []
@@ -87,7 +87,7 @@ if st.button("🚀 Iniciar Robô"):
             estrategia = analise['estrategia']
 
             if entrada == "ESPERAR":
-                st.session_state.stframe.text("⏸ Aguardando oportunidade...")
+                stframe.text("⏸ Aguardando oportunidade...")
                 time.sleep(2)
                 continue
 
@@ -116,7 +116,7 @@ if st.button("🚀 Iniciar Robô"):
                 continue
 
             if result.get("msg_type") != "buy" or "buy" not in result:
-                st.session_state.stframe.text("❌ Erro: resposta inesperada da Deriv (sem campo 'buy')")
+                stframe.text("❌ Erro: resposta inesperada da Deriv (sem campo 'buy')")
                 time.sleep(3)
                 continue
 
@@ -142,26 +142,26 @@ if st.button("🚀 Iniciar Robô"):
                 consecutivas = 0
                 stake_atual = stake_inicial
                 martingale_nivel = 0
-                st.session_state.stframe.text(f"✅ WIN | +${round(lucro, 2)} | Stake: {round(stake_atual, 2)}")
+                stframe.text(f"✅ WIN | +${round(lucro, 2)} | Stake: {round(stake_atual, 2)}")
             else:
                 ganho_total -= stake_atual
                 consecutivas += 1
                 if use_martingale:
                     martingale_nivel += 1
                     stake_atual = round(stake_inicial * (factor ** martingale_nivel), 2)
-                    st.session_state.stframe.text(f"❌ LOSS | -${round(stake_atual, 2)} | Próxima stake: {stake_atual}")
+                    stframe.text(f"❌ LOSS | -${round(stake_atual, 2)} | Próxima stake: {stake_atual}")
                 else:
-                    st.session_state.stframe.text(f"❌ LOSS | -${round(stake_atual, 2)}")
+                    stframe.text(f"❌ LOSS | -${round(stake_atual, 2)}")
 
-            st.session_state.lucro_display.markdown(
+            lucro_display.markdown(
                 f"### {'🟢' if ganho_total > 0 else '🔴' if ganho_total < 0 else '⚪'} Lucro acumulado: **${ganho_total:.2f}**"
             )
 
             if ganho_total >= stop_gain:
-                st.session_state.alerta_final.success("🔥 Tropa do AMASSA OTÁRIO! Meta de lucro atingida!")
+                alerta_final.success("🔥 Tropa do AMASSA OTÁRIO! Meta de lucro atingida!")
                 break
             if ganho_total <= -stop_loss or consecutivas >= max_losses:
-                st.session_state.alerta_final.error("💀 Perdeu doidão! Stop Loss atingido.")
+                alerta_final.error("💀 Perdeu doidão! Stop Loss atingido.")
                 break
 
             with lock:
@@ -169,4 +169,4 @@ if st.button("🚀 Iniciar Robô"):
 
             time.sleep(5)
 
-    threading.Thread(target=run_bot, daemon=True).start()
+    threading.Thread(target=run_bot, args=(stframe, lucro_display, alerta_final), daemon=True).start()
