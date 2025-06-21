@@ -1,11 +1,10 @@
-# FamPed - Robô da Deriv Automatizado
+# FamPed - Robô Inteligente da Deriv (by Rogger Pedro)
 
-## Como publicar este robô no Streamlit Cloud
+## Publicação no Streamlit Cloud
 
-1. Crie um repositório no GitHub e envie os arquivos deste projeto.
-2. Acesse https://streamlit.io/cloud e clique em "Deploy an app".
-3. Conecte com seu GitHub e selecione o repositório que você criou.
-4. No campo "Main file path", coloque: `app.py`
-5. Clique em "Deploy".
+1. Crie um repositório no GitHub com os arquivos deste projeto.
+2. Acesse: https://streamlit.io/cloud e conecte com o GitHub.
+3. Clique em "New app", selecione o repositório e o arquivo `app.py`.
+4. Clique em "Deploy" e pronto.
 
-Pronto! Seu robô estará online.
+Insira seu token da Deriv e clique em Iniciar para rodar o robô.
