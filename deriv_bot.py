@@ -121,15 +121,18 @@ class DerivBot:
                     consecutivas = 0
                     stake = stake_inicial
                     martingale_nivel = 0
+                    self.logs.append(f"✅ WIN | Lucro: +${round(lucro, 2)} | Stake: {round(stake, 2)}")
                 else:
                     ganho_total -= stake
                     consecutivas += 1
                     if self.use_martingale:
                         martingale_nivel += 1
                         stake = round(stake_inicial * (self.factor ** martingale_nivel), 2)
-                        self.logs.append(f"🔁 Martingale aplicado. Nível: {martingale_nivel} | Nova stake: {stake}")
+                        self.logs.append(f"❌ LOSS | Prejuízo: -${round(stake, 2)} | Martingale nível {martingale_nivel} | Próxima stake: {stake}")
+                    else:
+                        self.logs.append(f"❌ LOSS | Prejuízo: -${round(stake, 2)}")
 
-                log = f"[{time.strftime('%H:%M:%S')}] Estratégia: {estrategia} | Entrada: {entrada} | Resultado: {resultado} | Stake: {round(stake,2)}"
+                log = f"[{time.strftime('%H:%M:%S')}] Estratégia: {estrategia} | Entrada: {entrada} | Resultado: {resultado}"
                 self.logs.append(log)
                 self.resultados.append(1 if resultado == "WIN" else -1)
 
@@ -142,5 +145,8 @@ class DerivBot:
                 if ganho_total <= -self.stop_loss or consecutivas >= self.max_losses:
                     self.logs.append("🛑 Stop Loss ou limite de perdas consecutivas atingido.")
                     break
+
+                # Reset de análise após cada operação
+                ticks = []
 
                 time.sleep(5)
