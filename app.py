@@ -1,4 +1,5 @@
 
+import threading
 import streamlit as st
 from deriv_bot import DerivBot
 
@@ -20,11 +21,11 @@ if st.button("🚀 Iniciar Robô"):
 
     stframe = st.empty()
     lucro_display = st.empty()
+    alerta_final = st.empty()
 
     bot = DerivBot(token, symbol, stake, use_martingale, factor, stop_gain, stop_loss, max_losses)
 
-    # Substituir plot_resultados por lucro_display
-    def run_bot_com_lucro():
+    def run_bot():
         import websocket, json, time, threading
 
         ws_ticks = websocket.WebSocket()
@@ -153,10 +154,10 @@ if st.button("🚀 Iniciar Robô"):
             )
 
             if ganho_total >= stop_gain:
-                stframe.text("🎯 Meta de lucro atingida. Parando o robô.")
+                alerta_final.success("🔥 Tropa do AMASSA OTÁRIO! Meta de lucro atingida!")
                 break
             if ganho_total <= -stop_loss or consecutivas >= max_losses:
-                stframe.text("🛑 Stop Loss ou limite de perdas consecutivas atingido.")
+                alerta_final.error("💀 Perdeu doidão! Stop Loss atingido.")
                 break
 
             with lock:
@@ -164,4 +165,5 @@ if st.button("🚀 Iniciar Robô"):
 
             time.sleep(5)
 
-    threading.Thread(target=run_bot_com_lucro, daemon=True).start()
+    import threading
+    threading.Thread(target=run_bot, daemon=True).start()
