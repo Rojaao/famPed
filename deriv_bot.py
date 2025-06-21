@@ -91,13 +91,7 @@ class DerivBot:
                 ws.send(json.dumps(contrato))
                 result = json.loads(ws.recv())
 
-                if "error" in result:
-                    self.logs.append(f"❌ Erro ao comprar contrato: {result['error']['message']}")
-                    stframe.text("\n".join(self.logs[-12:]))
-                    time.sleep(3)
-                    continue
-
-                if "buy" not in result:
+                if result.get("msg_type") != "buy" or "buy" not in result:
                     self.logs.append("❌ Erro: resposta inesperada da Deriv (sem campo 'buy')")
                     stframe.text("\n".join(self.logs[-12:]))
                     time.sleep(3)
@@ -132,7 +126,8 @@ class DerivBot:
                     consecutivas += 1
                     if self.use_martingale:
                         martingale_nivel += 1
-                        stake = stake_inicial * (self.factor ** martingale_nivel)
+                        stake = round(stake_inicial * (self.factor ** martingale_nivel), 2)
+                        self.logs.append(f"🔁 Martingale aplicado. Nível: {martingale_nivel} | Nova stake: {stake}")
 
                 log = f"[{time.strftime('%H:%M:%S')}] Estratégia: {estrategia} | Entrada: {entrada} | Resultado: {resultado} | Stake: {round(stake,2)}"
                 self.logs.append(log)
