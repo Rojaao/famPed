@@ -1,4 +1,8 @@
 import streamlit as st
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
+
 from deriv_bot import DerivBot
 
 st.set_page_config(page_title="FamPed - Robô Inteligente da Deriv (by Rogger Pedro)", layout="wide")
