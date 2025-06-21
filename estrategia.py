@@ -1,5 +1,4 @@
 def analisar_ticks_famped(ticks):
-    baixos = [d for d in ticks if d < 4]
     ultimos_8 = ticks[-8:]
     ausencia_baixos = all(d >= 4 for d in ultimos_8)
     media = sum(ticks) / len(ticks)
@@ -11,7 +10,4 @@ def analisar_ticks_famped(ticks):
     else:
         entrada = "OVER 3"
 
-    return {
-        "estrategia": "FAMPED",
-        "entrada": entrada
-    }
+    return {"estrategia": "FAMPED", "entrada": entrada}

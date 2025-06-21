@@ -1,10 +1,6 @@
-# FamPed - Robô Inteligente da Deriv (by Rogger Pedro)
+# Robô FamPed - Estratégia Inteligente para Deriv
 
-## Publicação no Streamlit Cloud
-
-1. Crie um repositório no GitHub com os arquivos deste projeto.
-2. Acesse: https://streamlit.io/cloud e conecte com o GitHub.
-3. Clique em "New app", selecione o repositório e o arquivo `app.py`.
-4. Clique em "Deploy" e pronto.
-
-Insira seu token da Deriv e clique em Iniciar para rodar o robô.
+✅ Estratégia FAMPED: Analisa os 33 últimos dígitos e entra em Digit Over 3 ou 4 com base em padrões fortes.  
+✅ Compatível com tokens reais ou demo da Deriv  
+✅ Interface via Streamlit, com logs ao vivo e gráfico de desempenho  
+✅ Totalmente pronto para publicação no Streamlit Cloud
