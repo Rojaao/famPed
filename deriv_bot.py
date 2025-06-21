@@ -51,23 +51,8 @@ class DerivBot:
                         ticks.append(int(str(tick_msg["tick"]["quote"])[-1]))
                         if len(ticks) > 100:
                             ticks = ticks[-100:]
-                except websocket.WebSocketConnectionClosedException:
-                    self.logs.append("⚠️ Conexão perdida. Reconectando ao WebSocket...")
-                    stframe.text("\n".join(self.logs[-12:]))
-                    try:
-                        ws = websocket.WebSocket()
-                        ws.connect("wss://ws.binaryws.com/websockets/v3?app_id=1089")
-                        ws.send(json.dumps({"authorize": self.token}))
-                        ws.recv()
-                        ws.send(json.dumps({"ticks": self.symbol}))
-                        self.logs.append("✅ Reconectado com sucesso.")
-                        stframe.text("\n".join(self.logs[-12:]))
-                    except Exception as e:
-                        self.logs.append(f"❌ Erro ao reconectar: {str(e)}")
-                        stframe.text("\n".join(self.logs[-12:]))
-                        time.sleep(5)
                 except Exception as e:
-                    self.logs.append(f"❌ Erro inesperado: {str(e)}")
+                    self.logs.append(f"❌ Erro no recebimento de ticks: {str(e)}")
                     stframe.text("\n".join(self.logs[-12:]))
                     time.sleep(2)
 
@@ -78,6 +63,14 @@ class DerivBot:
                 analise = analisar_ticks_famped(ticks[-33:])
                 entrada = analise['entrada']
                 estrategia = analise['estrategia']
+
+                if entrada == "ESPERAR":
+                    self.logs.append("⏸ Aguardando oportunidade...")
+                    stframe.text("\n".join(self.logs[-12:]))
+                    time.sleep(2)
+                    continue
+
+                barrier = entrada.split()[-1]
 
                 contrato = {
                     "buy": 1,
@@ -90,7 +83,7 @@ class DerivBot:
                         "duration": 1,
                         "duration_unit": "t",
                         "symbol": self.symbol,
-                        "barrier": entrada[-1]
+                        "barrier": barrier
                     },
                     "req_id": 1
                 }
@@ -111,16 +104,22 @@ class DerivBot:
                     continue
 
                 buy_id = result["buy"]["contract_id"]
-                start_time = time.time()
-
                 resultado = "Desconhecido"
+                inicio = time.time()
+
                 while True:
-                    res = json.loads(ws.recv())
-                    if res.get("msg_type") == "proposal_open_contract" and res["proposal_open_contract"]["contract_id"] == buy_id:
-                        if res["proposal_open_contract"]["is_sold"]:
-                            resultado = "WIN" if res["proposal_open_contract"]["profit"] > 0 else "LOSS"
+                    try:
+                        res = json.loads(ws.recv())
+                        if res.get("msg_type") == "proposal_open_contract":
+                            if res["proposal_open_contract"]["contract_id"] == buy_id:
+                                if res["proposal_open_contract"]["is_sold"]:
+                                    lucro = res["proposal_open_contract"]["profit"]
+                                    resultado = "WIN" if lucro > 0 else "LOSS"
+                                    break
+                        if time.time() - inicio > 10:
+                            self.logs.append("⚠️ Timeout ao aguardar resultado.")
                             break
-                    if time.time() - start_time > 10:
+                    except:
                         break
 
                 if resultado == "WIN":
