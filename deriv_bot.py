@@ -38,6 +38,7 @@ class DerivBot:
         consecutivas = 0
         ganho_total = 0
         stake = self.stake
+        stake_inicial = self.stake  # salva stake original
 
         def receber_ticks():
             nonlocal ticks
@@ -75,7 +76,6 @@ class DerivBot:
                 ws.send(json.dumps(contrato))
                 result = json.loads(ws.recv())
 
-                # ✅ Tratamento de erro aprimorado
                 if "error" in result:
                     self.logs.append(f"❌ Erro ao comprar contrato: {result['error']['message']}")
                     stframe.text("\n".join(self.logs[-12:]))
@@ -104,12 +104,12 @@ class DerivBot:
                 if resultado == "WIN":
                     ganho_total += stake
                     consecutivas = 0
-                    stake = self.stake
+                    stake = stake_inicial  # ✅ volta ao valor inicial
                 else:
                     ganho_total -= stake
                     consecutivas += 1
                     if self.use_martingale:
-                        stake *= self.factor
+                        stake *= self.factor  # aplica martingale
 
                 log = f"[{time.strftime('%H:%M:%S')}] Estratégia: {estrategia} | Entrada: {entrada} | Resultado: {resultado} | Stake: {round(stake,2)}"
                 self.logs.append(log)
