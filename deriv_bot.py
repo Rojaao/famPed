@@ -22,20 +22,26 @@ class DerivBot:
         stframe = st.empty()
         plot_area = st.empty()
 
-        ws = websocket.WebSocket()
-        ws.connect("wss://ws.binaryws.com/websockets/v3?app_id=1089")
-        ws.send(json.dumps({"authorize": self.token}))
-        auth_response = json.loads(ws.recv())
+        # WS 1: Ticks
+        ws_ticks = websocket.WebSocket()
+        ws_ticks.connect("wss://ws.binaryws.com/websockets/v3?app_id=1089")
+        ws_ticks.send(json.dumps({"authorize": self.token}))
+        ws_ticks.recv()  # descartar auth de ticks
+        ws_ticks.send(json.dumps({"ticks": self.symbol}))
+
+        # WS 2: Operações
+        ws_op = websocket.WebSocket()
+        ws_op.connect("wss://ws.binaryws.com/websockets/v3?app_id=1089")
+        ws_op.send(json.dumps({"authorize": self.token}))
+        auth_response = json.loads(ws_op.recv())
         if 'error' in auth_response:
             st.error("❌ Token inválido")
             return
 
         st.success(f"✅ Conectado | Conta: {'Real' if auth_response['authorize']['is_virtual']==0 else 'Demo'}")
 
-        ws.send(json.dumps({"ticks": self.symbol}))
         ticks = []
         lock = threading.Lock()
-        recebendo_ticks = True
 
         saldo = 0
         consecutivas = 0
@@ -46,16 +52,16 @@ class DerivBot:
 
         def receber_ticks():
             nonlocal ticks
-            while recebendo_ticks:
+            while True:
                 try:
-                    tick_msg = json.loads(ws.recv())
+                    tick_msg = json.loads(ws_ticks.recv())
                     if tick_msg.get("msg_type") == "tick":
                         with lock:
                             ticks.append(int(str(tick_msg["tick"]["quote"])[-1]))
                             if len(ticks) > 100:
                                 ticks = ticks[-100:]
                 except Exception as e:
-                    self.logs.append(f"❌ Erro no recebimento de ticks: {str(e)}")
+                    self.logs.append(f"❌ Erro nos ticks: {str(e)}")
                     stframe.text("\n".join(self.logs[-12:]))
                     time.sleep(2)
 
@@ -100,8 +106,8 @@ class DerivBot:
                 "req_id": 1
             }
 
-            ws.send(json.dumps(contrato))
-            result = json.loads(ws.recv())
+            ws_op.send(json.dumps(contrato))
+            result = json.loads(ws_op.recv())
 
             if result.get("msg_type") != "buy" or "buy" not in result:
                 self.logs.append("❌ Erro: resposta inesperada da Deriv (sem campo 'buy')")
@@ -112,14 +118,13 @@ class DerivBot:
             buy_id = result["buy"]["contract_id"]
             resultado = "Desconhecido"
 
-            # Monitorar manualmente o contrato até obter is_sold = true
             for _ in range(20):
                 time.sleep(1)
-                ws.send(json.dumps({
+                ws_op.send(json.dumps({
                     "proposal_open_contract": 1,
                     "contract_id": buy_id
                 }))
-                res = json.loads(ws.recv())
+                res = json.loads(ws_op.recv())
                 if res.get("msg_type") == "proposal_open_contract":
                     contrato_info = res["proposal_open_contract"]
                     if contrato_info.get("is_sold"):
