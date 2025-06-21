@@ -38,8 +38,9 @@ class DerivBot:
         saldo = 0
         consecutivas = 0
         ganho_total = 0
-        stake = self.stake
         stake_inicial = self.stake
+        stake = stake_inicial
+        martingale_nivel = 0
 
         def receber_ticks():
             nonlocal ticks, ws
@@ -126,14 +127,13 @@ class DerivBot:
                     ganho_total += stake
                     consecutivas = 0
                     stake = stake_inicial
+                    martingale_nivel = 0
                 else:
                     ganho_total -= stake
                     consecutivas += 1
                     if self.use_martingale:
-                        if stake == stake_inicial:
-                            stake = stake_inicial * self.factor
-                        else:
-                            stake *= self.factor
+                        martingale_nivel += 1
+                        stake = stake_inicial * (self.factor ** martingale_nivel)
 
                 log = f"[{time.strftime('%H:%M:%S')}] Estratégia: {estrategia} | Entrada: {entrada} | Resultado: {resultado} | Stake: {round(stake,2)}"
                 self.logs.append(log)
