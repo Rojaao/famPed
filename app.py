@@ -1,10 +1,9 @@
 
-import threading
 import streamlit as st
+import threading
 from deriv_bot import DerivBot
 
 st.set_page_config(page_title="Robô Famped Deriv", layout="centered")
-
 st.title("🤖 Robô Deriv - Estratégia FAMPED")
 
 token = st.text_input("🔑 Token da API (Demo ou Real)", type="password")
@@ -19,33 +18,54 @@ max_losses = st.number_input("❌ Máx. perdas consecutivas", min_value=1, value
 if st.button("🚀 Iniciar Robô"):
     st.success("Robô iniciado com sucesso!")
 
-    stframe = st.empty()
-    lucro_display = st.empty()
-    alerta_final = st.empty()
+    st.session_state.stframe = st.empty()
+    st.session_state.lucro_display = st.empty()
+    st.session_state.alerta_final = st.empty()
 
     bot = DerivBot(token, symbol, stake, use_martingale, factor, stop_gain, stop_loss, max_losses)
 
     def run_bot():
-        import websocket, json, time, threading
+        import websocket, json, time
 
-        ws_ticks = websocket.WebSocket()
-        ws_ticks.connect("wss://ws.binaryws.com/websockets/v3?app_id=1089")
-        ws_ticks.send(json.dumps({"authorize": token}))
-        ws_ticks.recv()
-        ws_ticks.send(json.dumps({"ticks": symbol}))
-
-        ws_op = websocket.WebSocket()
-        ws_op.connect("wss://ws.binaryws.com/websockets/v3?app_id=1089")
-        ws_op.send(json.dumps({"authorize": token}))
-        auth_response = json.loads(ws_op.recv())
-        if 'error' in auth_response:
-            st.error("❌ Token inválido")
+        try:
+            ws_ticks = websocket.WebSocket()
+            ws_ticks.connect("wss://ws.binaryws.com/websockets/v3?app_id=1089")
+            ws_ticks.send(json.dumps({"authorize": token}))
+            ws_ticks.recv()
+            ws_ticks.send(json.dumps({"ticks": symbol}))
+        except Exception:
             return
 
-        st.success(f"✅ Conectado | Conta: {'Real' if auth_response['authorize']['is_virtual']==0 else 'Demo'}")
+        try:
+            ws_op = websocket.WebSocket()
+            ws_op.connect("wss://ws.binaryws.com/websockets/v3?app_id=1089")
+            ws_op.send(json.dumps({"authorize": token}))
+            auth_response = json.loads(ws_op.recv())
+            if 'error' in auth_response:
+                return
+        except Exception:
+            return
 
-        ticks = []
+        st.session_state.stframe.text(f"✅ Conectado | Conta: {'Real' if auth_response['authorize']['is_virtual']==0 else 'Demo'}")
+
         lock = threading.Lock()
+        ticks = []
+
+        def receber_ticks():
+            while True:
+                try:
+                    msg = json.loads(ws_ticks.recv())
+                    if msg.get("msg_type") == "tick":
+                        with lock:
+                            ticks.append(int(str(msg["tick"]["quote"])[-1]))
+                            if len(ticks) > 100:
+                                ticks = ticks[-100:]
+                except:
+                    time.sleep(1)
+
+        threading.Thread(target=receber_ticks, daemon=True).start()
+
+        from estrategia import analisar_ticks_famped
 
         saldo = 0
         consecutivas = 0
@@ -54,28 +74,9 @@ if st.button("🚀 Iniciar Robô"):
         stake_atual = stake
         martingale_nivel = 0
 
-        def receber_ticks():
-            while True:
-                try:
-                    tick_msg = json.loads(ws_ticks.recv())
-                    if tick_msg.get("msg_type") == "tick":
-                        with lock:
-                            ticks.append(int(str(tick_msg["tick"]["quote"])[-1]))
-                            if len(ticks) > 100:
-                                ticks = ticks[-100:]
-                except Exception as e:
-                    stframe.text(f"❌ Erro nos ticks: {str(e)}")
-                    time.sleep(2)
-
-        threading.Thread(target=receber_ticks, daemon=True).start()
-
-        from estrategia import analisar_ticks_famped
         while True:
             with lock:
-                if len(ticks) >= 33:
-                    ultimos_ticks = ticks[-33:]
-                else:
-                    ultimos_ticks = []
+                ultimos_ticks = ticks[-33:] if len(ticks) >= 33 else []
 
             if not ultimos_ticks:
                 time.sleep(1)
@@ -86,7 +87,7 @@ if st.button("🚀 Iniciar Robô"):
             estrategia = analise['estrategia']
 
             if entrada == "ESPERAR":
-                stframe.text("⏸ Aguardando oportunidade...")
+                st.session_state.stframe.text("⏸ Aguardando oportunidade...")
                 time.sleep(2)
                 continue
 
@@ -108,11 +109,14 @@ if st.button("🚀 Iniciar Robô"):
                 "req_id": 1
             }
 
-            ws_op.send(json.dumps(contrato))
-            result = json.loads(ws_op.recv())
+            try:
+                ws_op.send(json.dumps(contrato))
+                result = json.loads(ws_op.recv())
+            except:
+                continue
 
             if result.get("msg_type") != "buy" or "buy" not in result:
-                stframe.text("❌ Erro: resposta inesperada da Deriv (sem campo 'buy')")
+                st.session_state.stframe.text("❌ Erro: resposta inesperada da Deriv (sem campo 'buy')")
                 time.sleep(3)
                 continue
 
@@ -138,26 +142,26 @@ if st.button("🚀 Iniciar Robô"):
                 consecutivas = 0
                 stake_atual = stake_inicial
                 martingale_nivel = 0
-                stframe.text(f"✅ WIN | +${round(lucro, 2)} | Stake: {round(stake_atual, 2)}")
+                st.session_state.stframe.text(f"✅ WIN | +${round(lucro, 2)} | Stake: {round(stake_atual, 2)}")
             else:
                 ganho_total -= stake_atual
                 consecutivas += 1
                 if use_martingale:
                     martingale_nivel += 1
                     stake_atual = round(stake_inicial * (factor ** martingale_nivel), 2)
-                    stframe.text(f"❌ LOSS | -${round(stake_atual, 2)} | Próxima stake: {stake_atual}")
+                    st.session_state.stframe.text(f"❌ LOSS | -${round(stake_atual, 2)} | Próxima stake: {stake_atual}")
                 else:
-                    stframe.text(f"❌ LOSS | -${round(stake_atual, 2)}")
+                    st.session_state.stframe.text(f"❌ LOSS | -${round(stake_atual, 2)}")
 
-            lucro_display.markdown(
+            st.session_state.lucro_display.markdown(
                 f"### {'🟢' if ganho_total > 0 else '🔴' if ganho_total < 0 else '⚪'} Lucro acumulado: **${ganho_total:.2f}**"
             )
 
             if ganho_total >= stop_gain:
-                alerta_final.success("🔥 Tropa do AMASSA OTÁRIO! Meta de lucro atingida!")
+                st.session_state.alerta_final.success("🔥 Tropa do AMASSA OTÁRIO! Meta de lucro atingida!")
                 break
             if ganho_total <= -stop_loss or consecutivas >= max_losses:
-                alerta_final.error("💀 Perdeu doidão! Stop Loss atingido.")
+                st.session_state.alerta_final.error("💀 Perdeu doidão! Stop Loss atingido.")
                 break
 
             with lock:
@@ -165,5 +169,4 @@ if st.button("🚀 Iniciar Robô"):
 
             time.sleep(5)
 
-    import threading
     threading.Thread(target=run_bot, daemon=True).start()
