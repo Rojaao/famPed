@@ -103,8 +103,7 @@ class DerivBot:
                 self.logs.append(log)
                 self.resultados.append(1 if resultado == "WIN" else -1)
 
-                stframe.text("
-".join(self.logs[-12:]))
+                stframe.text("\n".join(self.logs[-12:]))
                 plot_area.pyplot(plot_resultados(self.resultados))
 
                 if ganho_total >= self.stop_gain:
